@@ -13,7 +13,7 @@ airfoil_data = np.genfromtxt(
 """
 
 airfoil_data = np.genfromtxt(
-    "csv_plots/NACA_Re_1239338.csv",
+    "csv_plots/bruin_Re_NACA.csv",
     delimiter=",",
     skip_header=2,
     usecols=(0, 1, 2, 3, 4, 5, 6),
@@ -30,20 +30,21 @@ S = 1.45
 AR = (b**2) / S
 Lambda = 0  # no idea as no uniform leading edge wing sweep
 Rho = 1.225  # kg/m^3
-V = 10  # m/s
+T = 160  # N
+V = np.arange(10, 42, 0.1)
 Cd0 = 0.175
 e = 0.85
 
-cd = np.full(cl.shape, Cd0) + ((cl**2) / (np.pi * S * e))
+cd = np.full(cl.shape, Cd0) + ((cl**2) / (np.pi * AR * e))
 
-Vd_min = np.sqrt((W / S) * (2 / Rho) * (1 / np.sqrt(Cd0 * e * S * np.pi)))
-D_min = 2 * W * np.sqrt((Cd0) / (np.pi * S * e))
+Vd_min = np.sqrt((W / S) * (2 / Rho) * (1 / np.sqrt(Cd0 * e * AR * np.pi)))
+D_min = 2 * W * np.sqrt((Cd0) / (np.pi * AR * e))
 
 Vprmin = 1  # Nothing here yet, need to solve which is in presentation
 Pr_min = (
     (4 / 3)
     * W
-    * np.sqrt((W / S) * (2 / Rho) * np.sqrt(3 * (Cd0) / ((np.pi * S * e) ** 3)))
+    * np.sqrt((W / S) * (2 / Rho) * np.sqrt(3 * (Cd0) / ((np.pi * AR * e) ** 3)))
 )
 
 
@@ -71,16 +72,18 @@ def rd_min(W, S, Rho, cdcl_exp_min, gamma):
     return np.sqrt((W / S) * (2 / Rho) * cdcl_exp_min * (np.cos(gamma)) ** 3)
 
 
-def Pa(T, V):
+def Pa(V):
     return T * V
 
 
-def Pr(D, V):
+def Pr(V, Cl):
+    D = (Cd0 * 0.5 * Rho * S * (V**2)) + ((Cl**2) / (np.pi * AR * e) * 0.5 * Rho * S)
     return D * V
 
 
-def Pc(D, T, V):
-    return Pa(T, V) - Pr(D, V)
+def Pc(V, Cl):
+    D = (Cd0 * 0.5 * Rho * S * (V**2)) + ((Cl**2) / (np.pi * AR * e) * 0.5 * Rho * S)
+    return (T * V) - (D * V)
 
 
 def Vstall(W, Rho, S, Cl):
@@ -174,6 +177,27 @@ print(f"D min: {D_min:.2f} N")
 print(f"Vpr min: {Vprmin} m/s")
 print(f"Pr min: {Pr_min:.2f} N")
 
+
+# Pa_array = Pa(V)
+# Pr_array_2d = np.array([Pr(V, Cl) for Cl in cl_array[0]])
+# Pr_array_Prandel = np.array([Pr(V, Cl) for Cl in cl_array[1]])
+# Pr_array_Kuchemann = np.array([Pr(V, Cl) for Cl in cl_array[2]])
+## Pc_array = Pc(V, cl_array)
+#
+# print(np.shape(Pr_array_2d))
+# print(np.shape(V))
+# print(np.shape(cl_array[0]))
+# plt.figure()
+# for i in range(len(cl_array[0])):
+#    plt.plot(V, Pr_array_2d[i], label="Pr 2D")
+#    plt.plot(V, Pr_array_Prandel[i], label="Pr Prandtl")
+#
+# plt.xlabel("Velocity (m/s)")
+# plt.ylabel("Power Required (W)")
+# plt.title("Power Required vs Velocity")
+# plt.legend()
+# plt.grid()
+# plt.show()
 """
 plt.figure(figsize=(10, 5))
 plt.plot(gamma, rd_min_array[0][0], label="2D")

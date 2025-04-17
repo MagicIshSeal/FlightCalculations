@@ -2,8 +2,8 @@ import pandas as pd
 import pandas as pd
 
 # Path to your input file
-input_file = "raw_files/NACA2415_Re_1239338.txt"
-output_file = "csv_plots/NACA_Re_1239338.csv"
+input_file = "raw_files/bruin_Re_NACA.txt"
+output_file = "csv_plots/bruin_Re_NACA.csv"
 
 # Read the file line by line
 with open(input_file, "r") as f:
