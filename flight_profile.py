@@ -13,7 +13,7 @@ airfoil_data = np.genfromtxt(
 """
 
 airfoil_data = np.genfromtxt(
-    "csv_plots/NACA2415_Re_1_4e6.csv",
+    "csv_plots/NACA_Re_1239338.csv",
     delimiter=",",
     skip_header=2,
     usecols=(0, 1, 2, 3, 4, 5, 6),
@@ -26,7 +26,7 @@ cl = airfoil_data[:, 1]
 
 b = 3.5  # m
 W = 25 * 9.81  # N
-S = 2
+S = 1.45
 AR = (b**2) / S
 Lambda = 0  # no idea as no uniform leading edge wing sweep
 Rho = 1.225  # kg/m^3
@@ -83,6 +83,10 @@ def Pc(D, T, V):
     return Pa(T, V) - Pr(D, V)
 
 
+def Vstall(W, Rho, S, Cl):
+    return np.sqrt((2 * W) / (Rho * S * Cl))
+
+
 CLa_Prandtl = CLa_Prandtl(cl, AR)
 CLa_Kuchemann = CLa_Kuchemann(cl, Lambda, AR)
 
@@ -100,6 +104,8 @@ cd2_cl3_min = cd2_cl3_array[:, cd2_cl3_min_idx]
 # RD Min gamma 0 > 15
 gamma = np.arange(0, 15, 0.1)
 rd_min_array = np.array([rd_min(W, S, Rho, min_val, gamma) for min_val in cd2_cl3_min])
+
+VstallArray = Vstall(W, Rho, S, cl_max)
 
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
 
@@ -135,16 +141,22 @@ ax3.grid()
 plt.tight_layout()
 plt.show()
 
-"""
-print(f"CL Max Prandtl: {cl_max[1][0]} at {alpha[cl_max_idx[1]]} degrees")
-print(f"CL Max Kuchemann: {cl_max[2][0]} at {alpha[cl_max_idx[2]]} degrees")
-print(f"CL Max 2D: {cl_max[0][0]} at {alpha[cl_max_idx[0]]} degrees")
-print(f"Cl/Cd Max: {cl_cd_max(Cd0, AR)}")
-print(f"Vd min: {Vd_min} m/s")
-print(f"D min: {D_min} N")
+print(
+    f"CL Max Prandtl: {cl_max[1][0]:.2f} at {alpha[cl_max_idx[1]]} degrees, which results in a stall speed of {VstallArray[1][0]:.2f} m/s"
+)
+print(
+    f"CL Max Kuchemann: {cl_max[2][0]:.2f} at {alpha[cl_max_idx[2]]} degrees, which results in a stall speed of {VstallArray[2][0]:.2f} m/s"
+)
+print(
+    f"CL Max 2D: {cl_max[0][0]:.2f} at {alpha[cl_max_idx[0]]} degrees, which results in a stall speed of {VstallArray[0][0]:.2f} m/s"
+)
+print(f"Cl/Cd Max: {cl_cd_max(Cd0, AR):.2f}")
+print(f"Vd min: {Vd_min:.2f} m/s")
+print(f"D min: {D_min:.2f} N")
 print(f"Vpr min: {Vprmin} m/s")
-print(f"Pr min: {Pr_min} N")
+print(f"Pr min: {Pr_min:.2f} N")
 
+"""
 plt.figure(figsize=(10, 5))
 plt.plot(gamma, rd_min_array[0][0], label="2D")
 plt.plot(gamma, rd_min_array[1][0], label="Prandtl")
