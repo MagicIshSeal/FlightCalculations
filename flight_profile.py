@@ -120,20 +120,38 @@ ax1.legend()
 ax1.grid()
 
 # Second subplot - CLa vs Angle of Attack
-ax2.plot(alpha, CLa_Prandtl, label="CLa Prandtl")
-ax2.plot(alpha, CLa_Kuchemann, label="CLa Kuchemann")
-ax2.plot(alpha, cl, label="CLa 2D")
+ax2.plot(alpha, CLa_Prandtl, label="$C_{L_{\\alpha}}$ Prandtl")
+ax2.plot(alpha, CLa_Kuchemann, label="$C_{L_{\\alpha}}$ Kuchemann")
+ax2.plot(alpha, cl, label="$C_{L_{\\alpha}}$ 2D")
+ax2.axhline(
+    y=cl_max[0][0], color="blue", linestyle="--", alpha=0.5, label="$C_{L_{max}}$ 2D"
+)
+ax2.axhline(
+    y=cl_max[1][0],
+    color="orange",
+    linestyle="--",
+    alpha=0.5,
+    label="$C_{L_{max}}$ Prandtl",
+)
+ax2.axhline(
+    y=cl_max[2][0],
+    color="green",
+    linestyle="--",
+    alpha=0.5,
+    label="$C_{L_{max}}$ Kuchemann",
+)
+
 ax2.set_xlabel("Angle of Attack (degrees)")
-ax2.set_ylabel("CLa")
-ax2.set_title("CLa vs Angle of Attack")
+ax2.set_ylabel("$C_{L_{\\alpha}}$")
+ax2.set_title("$C_{L_{\\alpha}}$ vs Angle of Attack")
 ax2.legend()
 ax2.grid()
 
 # Third subplot - CD vs Angle of Attack
-ax3.plot(alpha, cd, label="CD")
+ax3.plot(alpha, cd, label="$C_D$")
 ax3.set_xlabel("Angle of Attack (degrees)")
-ax3.set_ylabel("CD")
-ax3.set_title("CD vs Angle of Attack")
+ax3.set_ylabel("$C_D$")
+ax3.set_title("$C_D$ vs Angle of Attack")
 ax3.legend()
 ax3.grid()
 
