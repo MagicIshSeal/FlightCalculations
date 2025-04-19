@@ -30,8 +30,8 @@ dfs = {} #wrapper for dataframes
 for v, re in zip(V, Re):
     dfs[f'df_V_{v}_Re_{re}'] = run_for_Re("NACA2415", re, -18.750, 19.250, 0.25, 1000)
 
-
 print(dfs)
+print(len(dfs))
 # Helper functions for calculations
 def CLa_Prandtl(Cla, AR):
     return Cla / (1 + ((Cla) / (np.pi * e * AR)))
