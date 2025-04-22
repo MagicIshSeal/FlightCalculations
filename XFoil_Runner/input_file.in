@@ -1,9 +1,9 @@
 NACA2415
 PANE
 OPER
-Visc 1.180e6
+Visc 1.239e6
 PACC
-XFoil_Runner\output_polars\polar_file_NACA2415_Re_1.180e6.txt
+XFoil_Runner/output_polars/polar_file_NACA2415_Re_1.239e6.txt
 
 ITER 1000
 ASeq -18.75 19.25 0.25
