@@ -6,7 +6,8 @@ import os
 
 # Constants
 b = 3.5  # m
-W = 25 * 9.81  # N
+g = 9.81
+W = 25 * g  # N
 S = 1.45
 AR = (b**2) / S
 Lambda = 0  # wing sweep angle
@@ -17,6 +18,7 @@ T = 160  # N
 Cd0 = 0.175
 e = 0.85
 gamma = 16
+theta = np.arange(30, 75, 15)
 
 V = np.array([16, (105 / 3.6), 42])
 
@@ -83,9 +85,10 @@ Prmin = (
     * W
     * np.sqrt((W * S) * (2 / Rho) * np.sqrt((3 * Cd0) / ((np.pi * AR * e) ** 3)))
 )
-Vprmin = 1  # need to be calculated
-Prbank = 1  # needs to be derived
-Tturn = 1  # needs to be derived
+Vprmin = np.sqrt((W / S) * (2 / Rho) * np.sqrt((1) / (3 * Cd0 * np.pi * AR * e)))
+Prbank = W * np.sqrt((2 * W) / (Rho * S * np.cos(np.radians(theta))))
+Tturn_180 = V * ((np.pi) / (g * np.tan(np.radians(theta))))
+Tturn_360 = V * ((2 * np.pi) / (g * np.tan(np.radians(theta))))
 
 power_curves = {}
 
@@ -152,8 +155,31 @@ print(f"Vdmin = {Vdmin:.2f} m/s")
 print(f"Dmin = {Dmin:.2f} N")
 print(f"Prmin = {Prmin:.2f} W")
 print(f"Vprmin = {Vprmin:.2f} m/s")
-print(f"Prbank = {Prbank:.2f} W")
-print(f"Tturn = {Tturn:.2f} W")
+
+print("\nTurn Performance Analysis:")
+print("-" * 70)
+for i, th in enumerate(theta):
+    print(f"At θ = {th:>3.0f}°:")
+    print(f"    Power required in bank = {Prbank[i]:>8.2f} W")
+
+    for j, v in enumerate(V):
+        # Get excess power at this velocity
+        power_df = power_curves[f"power_V_{v}_Re_{Re[j]}"]
+        # Find closest velocity value in power data
+        v_idx = (power_df["V"] - v).abs().idxmin()
+        excess_power = power_df["Pc"].iloc[v_idx]
+
+        t180 = v * (np.pi / (g * np.tan(np.radians(th))))
+        t360 = 2 * t180
+
+        # Check if we have enough power
+        power_margin = excess_power - Prbank[i]
+        status = "✓" if power_margin >= 0 else "✗"
+
+        print(f"      V = {v:>6.1f} m/s:")
+        print(f"        Turn times: 180° = {t180:>6.2f} s, 360° = {t360:>6.2f} s")
+        print(f"        Power margin = {power_margin:>8.2f} W {status}")
+    print()  # Add blank line between bank angles
 
 output_dir = "processed_csv"
 aero_dir = os.path.join(output_dir, "aerodynamics")
@@ -290,6 +316,69 @@ ax9.set_ylabel("$C_L^3/C_D^3$")
 ax9.set_title("$C_L^3/C_D^2$ vs Lift Coefficient")
 ax9.grid(True)
 ax9.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+
+plt.tight_layout()
+plt.show()
+
+# Create turn performance plots
+fig4, ((ax10, ax11), (ax12, ax13)) = plt.subplots(2, 2, figsize=(15, 12))
+
+# Plot Power Required in Bank vs Bank Angle
+ax10.plot(theta, Prbank, "bo-", label="Power Required")
+for i, th in enumerate(theta):
+    for j, v in enumerate(V):
+        power_df = power_curves[f"power_V_{v}_Re_{Re[j]}"]
+        v_idx = (power_df["V"] - v).abs().idxmin()
+        excess_power = power_df["Pc"].iloc[v_idx]
+        color = "g" if excess_power >= Prbank[i] else "r"
+        ax10.scatter(
+            th,
+            excess_power,
+            c=color,
+            marker="o",
+            label=f"V = {v:.1f} m/s" if i == 0 else "",
+        )
+ax10.set_xlabel("Bank Angle (degrees)")
+ax10.set_ylabel("Power (W)")
+ax10.set_title("Power Required vs Bank Angle")
+ax10.grid(True)
+ax10.legend()
+
+# Plot Turn Times vs Bank Angle
+for j, v in enumerate(V):
+    t180 = v * (np.pi / (g * np.tan(np.radians(theta))))
+    ax11.plot(theta, t180, "o-", label=f"V = {v:.1f} m/s")
+ax11.set_xlabel("Bank Angle (degrees)")
+ax11.set_ylabel("Time (s)")
+ax11.set_title("180° Turn Time vs Bank Angle")
+ax11.grid(True)
+ax11.legend()
+
+# Plot Turn Radius vs Bank Angle
+for j, v in enumerate(V):
+    radius = (v**2) / (g * np.tan(np.radians(theta)))
+    ax12.plot(theta, radius, "o-", label=f"V = {v:.1f} m/s")
+ax12.set_xlabel("Bank Angle (degrees)")
+ax12.set_ylabel("Radius (m)")
+ax12.set_title("Turn Radius vs Bank Angle")
+ax12.grid(True)
+ax12.legend()
+
+# Plot Power Margin vs Bank Angle
+for j, v in enumerate(V):
+    margins = []
+    for i, th in enumerate(theta):
+        power_df = power_curves[f"power_V_{v}_Re_{Re[j]}"]
+        v_idx = (power_df["V"] - v).abs().idxmin()
+        excess_power = power_df["Pc"].iloc[v_idx]
+        margins.append(excess_power - Prbank[i])
+    ax13.plot(theta, margins, "o-", label=f"V = {v:.1f} m/s")
+ax13.axhline(y=0, color="k", linestyle="--", alpha=0.5)
+ax13.set_xlabel("Bank Angle (degrees)")
+ax13.set_ylabel("Power Margin (W)")
+ax13.set_title("Power Margin vs Bank Angle")
+ax13.grid(True)
+ax13.legend()
 
 plt.tight_layout()
 plt.show()
