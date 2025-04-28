@@ -37,7 +37,7 @@ choice = input("Do you want to run XFoil? (y/n): ").strip().lower()
 if choice == "y":
     for v, re in zip(V, Re):
         dfs[f"df_V_{v}_Re_{re}"] = run_for_Re(
-            "NACA2415", re, -18.750, 19.250, 0.25, 1000
+            "NACA2415", -18.750, 19.250, re, alpha_step=0.25, n_iter=1000, Ncrit=5
         )
     with open("dfs_dictionary.pkl", "wb") as file:
         pd.to_pickle(dfs, file)
@@ -77,6 +77,10 @@ def pc(pa, pr):
     return pa - pr
 
 
+def D(Cd, V):
+    return Cd * (1 / 2) * Rho * S * (V**2)
+
+
 Vdmin = np.sqrt((W / S) * (2 / Rho) * (1 / np.sqrt(Cd0 * e * AR * np.pi)))
 Dmin = 2 * W * np.sqrt((Cd0) / (np.pi * AR * e))
 
@@ -91,16 +95,21 @@ Tturn_180 = V * ((np.pi) / (g * np.tan(np.radians(theta))))
 Tturn_360 = V * ((2 * np.pi) / (g * np.tan(np.radians(theta))))
 
 power_curves = {}
+drag_curves = {}
 
 for df_name, df in dfs.items():
     name = float(df_name.split("_")[2])  # Extract velocity from df name
     power_df = pd.DataFrame()
+    velocities = pd.DataFrame()
     alpha_zero_idk = (df["alpha"]).abs().idxmin()
     power_df["V"] = np.arange(10, 42.1, 0.1)
+    velocities["V"] = power_df["V"]
+    velocities["D"] = D(df["CD"][alpha_zero_idk], velocities["V"])
     power_df["Pa"] = pa(power_df["V"])
     power_df["Pr"] = pr(df["CD"][alpha_zero_idk], power_df["V"])
     power_df["Pc"] = pc(power_df["Pa"], power_df["Pr"])
     power_curves[f"power_V_{name}_Re_{df_name.split('_Re_')[1]}"] = power_df
+    drag_curves[f"drag_V_{name}_Re_{df_name.split('_Re_')[1]}"] = velocities
 
 
 for df_name, df in dfs.items():
@@ -381,4 +390,13 @@ ax13.grid(True)
 ax13.legend()
 
 plt.tight_layout()
+plt.show()
+
+plt.figure()
+for df_name, df in drag_curves.items():
+    velocity = float(df_name.split("_")[2])
+    plt.plot(df["V"], df["D"], label=f"V = {velocity:.1f} m/s")
+
+plt.grid()
+plt.legend()
 plt.show()

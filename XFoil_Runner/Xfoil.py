@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 
 
-def run_xfoil(airfoil_name, alpha_start, alpha_end, alpha_step, Re, n_iter):
+def run_xfoil(
+    airfoil_name, alpha_start, alpha_end, Re, alpha_step=0.25, Ncrit=9, n_iter=100
+):
     # Define base directory and output directory
     base_dir = "XFoil_Runner"
     output_dir = os.path.join(base_dir, "output_polars")
@@ -24,6 +26,9 @@ def run_xfoil(airfoil_name, alpha_start, alpha_end, alpha_step, Re, n_iter):
         input_file.write(f"{airfoil_name}\n")
         input_file.write("PANE\n")
         input_file.write("OPER\n")
+        input_file.write("VPAR\n")
+        input_file.write(f"N {Ncrit}\n")
+        input_file.write("\n")
         input_file.write(f"Visc {Re}\n")
         input_file.write("PACC\n")
         input_file.write(f"{polar_file}\n\n")
@@ -63,9 +68,19 @@ def format_polar_data_pandas(polar_file):
         raise
 
 
-def run_for_Re(airfoil_name, Re, alpha_start, alpha_end, alpha_step, n_iter):
+def run_for_Re(
+    airfoil_name, alpha_start, alpha_end, Re, alpha_step=0.25, Ncrit=9, n_iter=100
+):
     """Run XFoil for a given airfoil and Re number"""
-    run_xfoil(airfoil_name, alpha_start, alpha_end, alpha_step, Re, n_iter)
+    run_xfoil(
+        airfoil_name,
+        alpha_start,
+        alpha_end,
+        Re,
+        alpha_step=alpha_step,
+        Ncrit=Ncrit,
+        n_iter=n_iter,
+    )
 
     # Create polar file path
     polar_file = os.path.join(
@@ -74,3 +89,23 @@ def run_for_Re(airfoil_name, Re, alpha_start, alpha_end, alpha_step, n_iter):
 
     polar_df = format_polar_data_pandas(polar_file)
     return polar_df
+
+
+if __name__ == "__main__":
+    airfoil_name = "NACA2415"
+    alpha_start = -5
+    alpha_end = 15
+    Re = 1e6
+    alpha_step = 0.5
+    n_iter = 100
+    ncrit = 5
+
+    df = run_xfoil(
+        airfoil_name,
+        alpha_start,
+        alpha_end,
+        Re,
+        alpha_step=alpha_step,
+        n_iter=n_iter,
+        Ncrit=ncrit,
+    )
