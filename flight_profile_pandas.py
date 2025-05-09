@@ -87,7 +87,7 @@ Dmin = 2 * W * np.sqrt((Cd0) / (np.pi * AR * e))
 Prmin = (
     (4 / 3)
     * W
-    * np.sqrt((W * S) * (2 / Rho) * np.sqrt((3 * Cd0) / ((np.pi * AR * e) ** 3)))
+    * np.sqrt((W / S) * (2 / Rho) * np.sqrt((3 * Cd0) / ((np.pi * AR * e) ** 3)))
 )
 Vprmin = np.sqrt((W / S) * (2 / Rho) * np.sqrt((1) / (3 * Cd0 * np.pi * AR * e)))
 Prbank = W * np.sqrt((2 * W) / (Rho * S * np.cos(np.radians(theta))))
