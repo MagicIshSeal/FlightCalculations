@@ -51,6 +51,7 @@ normalized_roll = np.where(
     np.where(roll > 0, roll - 180, roll)
 )
 
+
 processed_data[' roll [deg]'] = normalized_roll
 processed_data['Time[s]'] = (processed_data['Time[ms]'] - processed_data['Time[ms]'].iloc[0])/1000
 processed_data[' pitch [deg]'] = -1*(processed_data[' pitch [deg]'] - processed_data[' pitch [deg]'].iloc[0])
@@ -83,6 +84,12 @@ processed_data = rotate_points(processed_data, average_angle, 0, 0, ' angle of a
 processed_data[' Cl_rot_trans'] = processed_data[' Cl_rot'] +0.25
 
 
+plt.figure()
+plt.plot(processed_data['Time[s]'], processed_data[' roll [deg]'], label='roll [deg]')
+plt.plot(processed_data['Time[s]'], processed_data[' pitch [deg]'], label='pitch [deg]')
+plt.legend()
+plt.grid()
+plt.show()
 
 plt.figure()
 plt.plot(processed_data['Time[s]'], processed_data[' Approx altitude [m]'], label='Approx altitude [m]')
@@ -102,7 +109,7 @@ plt.figure()
 plt.plot(processed_data['Time[s]'], processed_data[' speed [m/s]'], label='speed[m/s]')
 plt.plot(processed_data['Time[s]'], processed_data[' angle of attack [deg]'], label='angle of attack [deg]')
 plt.plot(processed_data['Time[s]'], processed_data[' rate of climb [m/s] (smoothed)'], label='rate of climb [m/s] (smoothed)')
-plt.plot(processed_data['Time[s]'], processed_data[' Lift [N]'], label='Lift [N]')
+#plt.plot(processed_data['Time[s]'], processed_data[' Lift [N]'], label='Lift [N]')
 plt.grid()
 plt.legend()
 plt.show()
@@ -116,6 +123,16 @@ plt.legend()
 plt.grid()
 plt.xlim(-20,30)
 plt.ylim(-2,2)
+plt.show()
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(processed_data[' Latitude [deg]'], processed_data[' Longitude [deg]'], processed_data[' Approx altitude [m]'], label='Flight path')
+ax.set_xlabel('Latitude [deg]')
+ax.set_ylabel('Longitude [deg]')
+ax.set_zlabel('Approx altitude [m]')
+ax.set_title('Flight path in 3D')
+plt.legend()
 plt.show()
 
         
