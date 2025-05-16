@@ -11,6 +11,7 @@ S = 1.45
 
 
 raw_data = pd.read_csv('LOG00002.CSV', delimiter=';')
+ae4  = pd.read_csv('AE4.CSV', delimiter=';', skiprows=range(1, 550))
 re_v_29 = pd.read_csv('processed_csv/aerodynamics/aero_V_29.2_Re_0.861e6.csv')
 re_v_16 = pd.read_csv('processed_csv/aerodynamics/aero_V_16.0_Re_0.472e6.csv')
 re_v_42 = pd.read_csv('processed_csv/aerodynamics/aero_V_42.0_Re_1.239e6.csv')
@@ -53,19 +54,37 @@ normalized_roll = np.where(
 
 
 processed_data[' roll [deg]'] = normalized_roll
+
+ae4['Time[s]'] = (ae4['Time[ms]'] - ae4['Time[ms]'].iloc[0])/1000
 processed_data['Time[s]'] = (processed_data['Time[ms]'] - processed_data['Time[ms]'].iloc[0])/1000
+
+ae4[' pitch [deg]'] = -1*(ae4[' pitch [deg]'] - ae4[' pitch [deg]'].iloc[0])
 processed_data[' pitch [deg]'] = -1*(processed_data[' pitch [deg]'] - processed_data[' pitch [deg]'].iloc[0])
+
+ae4[' rate of climb [m/s]'] = ae4[' Approx altitude [m]'].diff() / ae4['Time[s]'].diff()
 processed_data[' rate of climb [m/s]'] = processed_data[' Approx altitude [m]'].diff() / processed_data['Time[s]'].diff()
+
+ae4['rate of climb [m/s] (smoothed)'] = ae4[' rate of climb [m/s]'].rolling(window=10, center=True).mean()
 processed_data[' rate of climb [m/s] (smoothed)'] = processed_data[' rate of climb [m/s]'].rolling(window=10, center=True).mean()
+
+ae4[' flight path angle [deg]'] = np.rad2deg(np.asin(ae4['rate of climb [m/s] (smoothed)'] / ae4[' speed [m/s]']))
 processed_data[' flight path angle [deg]'] = np.rad2deg(np.asin(processed_data[' rate of climb [m/s] (smoothed)'] / processed_data[' speed [m/s]']))
+
+ae4[' angle of attack [deg]'] = ae4[' pitch [deg]'] - ae4[' flight path angle [deg]']
 processed_data[' angle of attack [deg]'] = processed_data[' pitch [deg]'] - processed_data[' flight path angle [deg]']
+
+ae4[' accz [m/s2]'] = ae4[' accZ [m/s2]'].rolling(window=40, center=True).mean() - g
 processed_data[' accZ [m/s2]'] = processed_data[' accZ [m/s2]'].rolling(window=40, center=True).mean() - g
+
+ae4[' Lift [N]'] = m*(ae4[' accZ [m/s2]'] + np.cos(np.deg2rad(ae4[' pitch [deg]'])*g))
 processed_data[' Lift [N]'] = m*(processed_data[' accZ [m/s2]']+ np.cos(np.deg2rad(processed_data[ ' pitch [deg]'])*g))
 #processed_data[' Lift [N]'] = m*g*(np.cos(np.radians(processed_data[' flight path angle [deg]']))/np.cos(np.radians(abs(processed_data[' roll [deg]']))))
+
+ae4[' Cl'] = ae4[' Lift [N]'] / (0.5*rho*(ae4[' speed [m/s]']**2) *S)
 processed_data[' Cl'] = processed_data[' Lift [N]'] / (0.5*rho*(processed_data[' speed [m/s]']**2) *S)
 
 dfs = [re_v_29, re_v_16, re_v_42]
-angles = []
+angles_ae1 = []
 for df in dfs:
     theory_x = df['alpha']
     theory_y = df['CL_3D']
@@ -75,11 +94,41 @@ for df in dfs:
         args=(processed_data, theory_x, theory_y, ' angle of attack [deg]', ' Cl'),
         bounds=None  # restrict search if desired
         )
-    angles.append(res.x[0])
-average_angle = np.average(angles)
-print(f"average best rotation angle: {average_angle:.2f} degrees")
+    angles_ae1.append(res.x[0])
+average_angle_ae1 = np.average(angles_ae1)
+print(f"average best rotation angle for AE1 inferred: {average_angle_ae1:.2f} degrees")
 
-processed_data = rotate_points(processed_data, average_angle, 0, 0, ' angle of attack [deg]', ' Cl')
+angles_ae4_inferred = []
+for df in dfs:
+    theory_x = df['alpha']
+    theory_y = df['CL_3D']
+    res = minimize(
+        rotation_loss,
+        x0=0,  # initial guess for angle
+        args=(ae4, theory_x, theory_y, ' angle of attack [deg]', ' Cl'),
+        bounds=None  # restrict search if desired
+        )
+    angles_ae4_inferred.append(res.x[0])
+average_angle_ae4_inferred = np.average(angles_ae4_inferred)
+print(f"average best rotation angle for AE4 inferred: {average_angle_ae4_inferred:.2f} degrees")
+
+angles_ae4_data = []
+for df in dfs:
+    theory_x = df['alpha']
+    theory_y = df['CL_3D']
+    res = minimize(
+        rotation_loss,
+        x0=0,  # initial guess for angle
+        args=(ae4, theory_x, theory_y, ' Angle [deg]', ' Cl'),
+        bounds=None  # restrict search if desired
+        )
+    angles_ae4_data.append(res.x[0])
+average_angle_ae4_data = np.average(angles_ae4_data)
+print(f"average best rotation angle for AE4 data: {average_angle_ae4_data:.2f} degrees")
+
+processed_data = rotate_points(processed_data, average_angle_ae1, 0, 0, ' angle of attack [deg]', ' Cl')
+ae4 = rotate_points(ae4, average_angle_ae4_inferred, 0, 0, ' angle of attack [deg]', ' Cl')
+ae4 = rotate_points(ae4, average_angle_ae4_data, 0, 0, ' Angle [deg]', ' Cl')
 
 processed_data[' Cl_rot_trans'] = processed_data[' Cl_rot'] +0.25
 
@@ -114,11 +163,18 @@ plt.grid()
 plt.legend()
 plt.show()
 
+ae4[' Angle [deg]'] = ae4[' Angle [deg]'] - ae4[' Angle [deg]'].iloc[0]
+
 plt.figure()
-plt.plot(processed_data[' angle of attack [deg]_rot'], processed_data[' Cl_rot'],'.', label='Cl')
+plt.plot(processed_data[' angle of attack [deg]_rot'], processed_data[' Cl_rot'],'.', label='Cl AE1 Inferred AoA')
+plt.plot(ae4[' angle of attack [deg]_rot'], ae4[' Cl_rot'],'.', label='Cl AE4 Inferred AoA')
+plt.plot(ae4[' Angle [deg]_rot'], ae4[' Cl_rot'],'.', label='Cl AE4 Data AoA')
 plt.plot(re_v_29['alpha'], re_v_29['CL_3D'], label='Cl XFoil V=29.2')
 plt.plot(re_v_16['alpha'], re_v_16['CL_3D'], label='Cl XFoil V=16.0')
 plt.plot(re_v_42['alpha'], re_v_42['CL_3D'], label='Cl XFoil V=42.0')
+plt.xlabel('Angle of attack [deg]')
+plt.ylabel('Cl')
+plt.title('Cl vs Angle of attack')
 plt.legend()
 plt.grid()
 plt.xlim(-20,30)
