@@ -78,7 +78,6 @@ processed_data[' accZ [m/s2]'] = processed_data[' accZ [m/s2]'].rolling(window=4
 
 ae4[' Lift [N]'] = m*(ae4[' accZ [m/s2]'] + np.cos(np.deg2rad(ae4[' pitch [deg]'])*g))
 processed_data[' Lift [N]'] = m*(processed_data[' accZ [m/s2]']+ np.cos(np.deg2rad(processed_data[ ' pitch [deg]'])*g))
-#processed_data[' Lift [N]'] = m*g*(np.cos(np.radians(processed_data[' flight path angle [deg]']))/np.cos(np.radians(abs(processed_data[' roll [deg]']))))
 
 ae4[' Cl'] = ae4[' Lift [N]'] / (0.5*rho*(ae4[' speed [m/s]']**2) *S)
 processed_data[' Cl'] = processed_data[' Lift [N]'] / (0.5*rho*(processed_data[' speed [m/s]']**2) *S)
