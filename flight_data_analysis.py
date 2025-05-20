@@ -204,7 +204,6 @@ def plot_landing_run_on_map():
     # Display the map
     m.save('landing_run_map.html')
     print("Map saved as landing_run_map.html. Open this file in your browser to view the map.")
-
     
 def plot_the_important():
     #plt.figure()
