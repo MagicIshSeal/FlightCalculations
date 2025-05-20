@@ -2,7 +2,7 @@
 *.bl
 
 # Python cache files
-__pycache__/
+XFoil_Runner/__pycache__/
 *.py[cod]
 *$py.class
 
