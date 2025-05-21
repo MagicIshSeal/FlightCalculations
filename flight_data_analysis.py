@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 import folium
+from ambiance import Atmosphere
 
 m = 25
 g = 9.81
@@ -56,6 +57,30 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
     return R * c
 
+def compute_ground_speed(TAS, heading_deg, wind_speed, wind_dir_deg):
+    # Convert angles to radians
+    heading_rad = np.deg2rad(heading_deg)
+    wind_dir_rad = np.deg2rad(wind_dir_deg)
+    
+    # TAS vector components
+    tas_x = TAS * np.cos(heading_rad)
+    tas_y = TAS * np.sin(heading_rad)
+    
+    # Wind vector components (wind direction is where it's coming FROM, so reverse it)
+    wind_x = wind_speed * np.cos(wind_dir_rad + np.pi)
+    wind_y = wind_speed * np.sin(wind_dir_rad + np.pi)
+    
+    # Ground speed vector components
+    gs_x = tas_x + wind_x
+    gs_y = tas_y + wind_y
+    
+    # Ground speed magnitude
+    ground_speed = np.sqrt(gs_x**2 + gs_y**2)
+    # Ground track (direction of motion over ground)
+    ground_track_deg = np.rad2deg(np.arctan2(gs_y, gs_x)) % 360
+    
+    return ground_speed, ground_track_deg
+
 processed_data = raw_data.copy()
 
 roll = processed_data[' roll [deg]']
@@ -80,11 +105,55 @@ processed_data[' flight path angle [deg]'] = np.rad2deg(np.arcsin(processed_data
 
 processed_data[' angle of attack [deg]'] = processed_data[' pitch [deg]'] - processed_data[' flight path angle [deg]']
 
-processed_data[' accZ [m/s2]'] = processed_data[' accZ [m/s2]'].rolling(window=40, center=True).mean() - g
+processed_data[' accZ [m/s2]'] = processed_data[' accZ [m/s2]'].rolling(window=40, center=True).mean() - g*np.cos(np.deg2rad(processed_data[' pitch [deg]'])) # remove gravity component
 
 processed_data[' Lift [N]'] = m*(processed_data[' accZ [m/s2]']+ np.cos(np.deg2rad(processed_data[ ' pitch [deg]'])*g))
 
 processed_data[' Cl'] = processed_data[' Lift [N]'] / (0.5*rho*(processed_data[' speed [m/s]']**2) *S)
+# Interpolate GPS positions between updates to match the logging rate
+
+def gps_fuckery():
+    # Only interpolate if there are no NaNs in the GPS columns
+    gps_time = processed_data['Time[s]']
+    lat_raw = processed_data[' Latitude [deg]']
+    lon_raw = processed_data[' Longitude [deg]']
+
+    # Find indices where GPS position changes (i.e., new GPS update)
+    gps_change = (lat_raw.diff() != 0) | (lon_raw.diff() != 0)
+    gps_change.iloc[0] = True  # Always include the first point
+
+    # Get only the rows where GPS changes
+    gps_points = processed_data[gps_change]
+
+    # Interpolate latitude and longitude for all timestamps
+    processed_data[' Latitude [deg]'] = np.interp(gps_time, gps_points['Time[s]'], gps_points[' Latitude [deg]'])
+    processed_data[' Longitude [deg]'] = np.interp(gps_time, gps_points['Time[s]'], gps_points[' Longitude [deg]'])
+
+    # Now recalculate segment distances and ground speed as before
+    distances = [0]
+    lats = processed_data[' Latitude [deg]'].values
+    lons = processed_data[' Longitude [deg]'].values
+
+    for i in range(1, len(lats)):
+        dist = haversine(lats[i-1], lons[i-1], lats[i], lons[i])
+        distances.append(dist)
+
+    processed_data[' segment_distance [m]'] = distances
+    processed_data[' cumulative_distance [m]'] = processed_data[' segment_distance [m]'].cumsum()
+    processed_data[' ground speed [m/s]'] = processed_data[' cumulative_distance [m]'].diff() / processed_data['Time[s]'].diff()
+    processed_data[' ground speed [m/s]'] = processed_data[' ground speed [m/s]'].fillna(0)
+
+    # Use .apply to ensure density is a float, not a list or array
+    processed_data[' density [kg/m3]'] = processed_data[' Approx altitude [m]'].abs().apply(lambda h: float(np.atleast_1d(Atmosphere(h).density).item()))
+
+    # Now TAS calculation will work as expected
+    processed_data[' TAS [m/s]'] = np.sqrt((2 * processed_data[' delta pressure [Pa]']) / processed_data[' density [kg/m3]'])
+
+    gs, track = compute_ground_speed(processed_data[' TAS [m/s]'], processed_data[' heading [deg]'], 6, 45)
+    processed_data[' gs_from_TAS [m/s]'] = gs
+    processed_data[' gs_track_from_TAS [deg]'] = track  # Optional: store the track as well
+
+    processed_data['speed_err [m/s]'] = abs(processed_data[' gs_from_TAS [m/s]'] - processed_data[' ground speed [m/s]'])
 
 dfs = [re_v_29, re_v_16, re_v_42]
 angles_ae1 = []
@@ -134,6 +203,8 @@ Landing_distance = haversine(processed_data[' Latitude [deg]'][first_idx], proce
 
 print(f'Landing distance direct is: {Landing_distance:.2f} m.')
 
+gps_fuckery()
+
 def plot_the_misc():
     plt.figure()
     plt.plot(processed_data['Time[s]'], processed_data[' roll [deg]'], label=r'Roll [$^\circ$]')
@@ -154,7 +225,7 @@ def plot_the_misc():
     plt.show()
     
     plt.figure()
-    plt.plot(processed_data['Time[s]'], processed_data[' speed [m/s]'], label=r'Speed [$\mathrm{m/s}$]')
+    plt.plot(processed_data['Time[s]'], processed_data[' speed [m/s]'].rolling(window=10, center=True).mean(), label=r'Speed [$\mathrm{m/s}$]')
     plt.plot(processed_data['Time[s]'], processed_data[' angle of attack [deg]'], label=r'Angle of attack [$^\circ$]')
     plt.plot(processed_data['Time[s]'], processed_data[' rate of climb [m/s] (smoothed)'], label=r'Rate of climb [$\mathrm{m/s}$] (smoothed)')
     plt.xlabel(r'Time [$s$]')
@@ -184,6 +255,46 @@ def plot_the_misc():
     ax.set_zlabel(r'Approx altitude [$m$]')
     ax.set_title('Flight path in 3D')
     plt.legend()
+    plt.show()
+    
+    
+    plt.figure(figsize=(10, 8))
+    plt.plot(processed_data[' angle of attack [deg]'], processed_data['speed_err [m/s]'], '.', label='Speed Error [m/s]')
+    plt.xlabel('Angle of Attack [$^\circ$]')
+    plt.ylabel('Speed Error [m/s]')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+    plt.figure()
+    plt.plot(processed_data['Time[s]'], processed_data[' speed [m/s]'].rolling(window=10, center=True).mean(), label='Speed [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], processed_data[' TAS [m/s]'].rolling(window=10, center=True).mean(), label='TAS [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], (processed_data[' ground speed [m/s]']).rolling(window=10, center=True).mean(), label='Ground Speed [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], processed_data[' gs_from_TAS [m/s]'].rolling(window=10, center=True).mean(), label='Ground Speed from TAS [m/s] (smoothed)')
+    plt.ylabel('Speed [m/s]')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Subplot 1: Speed
+    plt.subplot(2, 1, 1)
+    plt.plot(processed_data['Time[s]'], processed_data[' speed [m/s]'].rolling(window=10, center=True).mean(), label='Speed [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], processed_data[' TAS [m/s]'].rolling(window=10, center=True).mean(), label='TAS [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], (processed_data[' ground speed [m/s]'] + processed_data[' speed [m/s]'].iloc[0]).rolling(window=10, center=True).mean(), label='Ground Speed [m/s] (smoothed)')
+    plt.plot(processed_data['Time[s]'], processed_data[' gs_from_TAS [m/s]'].rolling(window=10, center=True).mean(), label='Ground Speed from TAS [m/s] (smoothed)')
+    plt.ylabel('Speed [m/s]')
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(processed_data['Time[s]'], processed_data[' angle of attack [deg]'].rolling(window=10, center=True).mean(), label='Angle of Attack [$^\circ$] (smoothed)')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angle of Attack [$^\circ$]')
+    plt.legend()
+    plt.grid()
+
+    plt.tight_layout()
     plt.show()
     
 def plot_landing_run_on_map():
@@ -250,5 +361,5 @@ def plot_the_important():
 plot_the_important()
 plot_the_misc()
 
-        
+
 
