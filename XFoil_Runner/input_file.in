@@ -9,7 +9,7 @@ PACC
 XFoil_Runner\output_polars\polar_file_NACA2415_Re_1000000.0.txt
 
 ITER 100
-ASeq -5 15 0.5
+ASeq -20 25 0.5
 
 
 quit

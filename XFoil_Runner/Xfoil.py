@@ -93,19 +93,26 @@ def run_for_Re(
 
 if __name__ == "__main__":
     airfoil_name = "NACA2415"
-    alpha_start = -5
-    alpha_end = 15
+    alpha_start = -20
+    alpha_end = 25
     Re = 1e6
     alpha_step = 0.5
     n_iter = 100
     ncrit = 5
 
-    df = run_xfoil(
+    df = run_for_Re(
         airfoil_name,
         alpha_start,
         alpha_end,
         Re,
         alpha_step=alpha_step,
-        n_iter=n_iter,
         Ncrit=ncrit,
+        n_iter=n_iter,
     )
+    
+    # Save to CSV with alpha, CL, CD columns
+    output_csv = os.path.join("XFoil_Runner", "output_csv", f"Re_{Re:.3e}.csv")
+    df[["alpha", "CL", "CD"]].to_csv(output_csv, index=False)
+    print(f"Saved output to {output_csv}")
+    
+    
